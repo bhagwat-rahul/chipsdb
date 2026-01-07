@@ -95,10 +95,18 @@ int main(void)
 	placed_db_net_hpwl(&db, net0, &hpwl_before);
 	printf("hpwl before: %" PRId64 "\n", hpwl_before);
 
-	batch = placed_db_begin_batch(&db, &arena, 1);
+	batch = placed_db_begin_batch(&db, &arena, 1, 1);
 	if (placed_db_batch_move_inst(&batch, inst_base + 1, 10, 0) != DB_OK) {
 		fprintf(stderr, "batch move failed\n");
 		return 1;
+	}
+	{
+		PinId pins[1];
+		pins[0] = pin0;
+		if (placed_db_batch_redefine_net_pins(&batch, net0, pins, 1) != DB_OK) {
+			fprintf(stderr, "batch redefine net pins failed\n");
+			return 1;
+		}
 	}
 	placed_db_end_batch(&batch);
 

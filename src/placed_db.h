@@ -62,6 +62,10 @@ typedef struct DbBatch {
 	InstId *touched_insts;
 	uint32_t touched_count;
 	uint32_t touched_cap;
+
+	NetId *touched_nets;
+	uint32_t touched_net_count;
+	uint32_t touched_net_cap;
 } DbBatch;
 
 void placed_db_init(PlacedDb *db, Arena *arena);
@@ -90,8 +94,9 @@ DbResult placed_db_validate(const PlacedDb *db);
 
 DbResult placed_db_recompute_all_nets(PlacedDb *db);
 
-DbBatch placed_db_begin_batch(PlacedDb *db, Arena *scratch_arena, uint32_t touched_inst_cap);
+DbBatch placed_db_begin_batch(PlacedDb *db, Arena *scratch_arena, uint32_t touched_inst_cap, uint32_t touched_net_cap);
 DbResult placed_db_batch_move_inst(DbBatch *batch, InstId inst, int32_t new_x, int32_t new_y);
+DbResult placed_db_batch_redefine_net_pins(DbBatch *batch, NetId net, const PinId *pins, uint32_t pin_count);
 DbResult placed_db_end_batch(DbBatch *batch);
 
 #endif

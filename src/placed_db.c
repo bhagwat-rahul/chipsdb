@@ -408,7 +408,7 @@ placed_db_recompute_all_nets(PlacedDb *db)
 }
 
 DbBatch
-placed_db_begin_batch(PlacedDb *db, Arena *scratch_arena, uint32_t touched_inst_cap)
+placed_db_begin_batch(PlacedDb *db, Arena *scratch_arena, uint32_t touched_inst_cap, uint32_t touched_net_cap)
 {
 	DbBatch b;
 	memset(&b, 0, sizeof(b));
@@ -424,7 +424,35 @@ placed_db_begin_batch(PlacedDb *db, Arena *scratch_arena, uint32_t touched_inst_
 			b.touched_cap = 0;
 		}
 	}
+
+	b.touched_net_cap = touched_net_cap;
+	if (touched_net_cap) {
+		b.touched_nets = (NetId *)arena_alloc(
+			scratch_arena,
+			sizeof(NetId) * (size_t)touched_net_cap,
+			_Alignof(NetId));
+		if (!b.touched_nets) {
+			b.touched_net_cap = 0;
+		}
+	}
 	return b;
+}
+
+static DbResult
+batch_touch_net(DbBatch *batch, NetId net)
+{
+	uint32_t i;
+
+	for (i = 0; i < batch->touched_net_count; i++) {
+		if (batch->touched_nets[i] == net) {
+			return DB_OK;
+		}
+	}
+	if (batch->touched_net_count >= batch->touched_net_cap) {
+		return DB_ERR_CAPACITY;
+	}
+	batch->touched_nets[batch->touched_net_count++] = net;
+	return DB_OK;
 }
 
 DbResult
@@ -440,6 +468,65 @@ placed_db_batch_move_inst(DbBatch *batch, InstId inst, int32_t new_x, int32_t ne
 	db->inst_x[inst] = new_x;
 	db->inst_y[inst] = new_y;
 	batch->touched_insts[batch->touched_count++] = inst;
+	return DB_OK;
+}
+
+DbResult
+placed_db_batch_redefine_net_pins(DbBatch *batch, NetId net, const PinId *pins, uint32_t pin_count)
+{
+	PlacedDb *db = batch->db;
+	uint32_t old_off;
+	uint32_t old_n;
+	uint32_t new_off;
+	uint32_t i;
+	DbResult r;
+
+	if ((uint32_t)net >= db->net_count) {
+		return DB_ERR_INVALID_INPUT;
+	}
+	if (!pins && pin_count) {
+		return DB_ERR_INVALID_INPUT;
+	}
+
+	old_off = db->net_pin_offset[net];
+	old_n = db->net_pin_count[net];
+	if (old_off + old_n > db->netpin_count) {
+		return DB_ERR_INVALID_INPUT;
+	}
+
+	for (i = 0; i < old_n; i++) {
+		PinId pin = db->net_pin_ids[old_off + i];
+		if ((uint32_t)pin >= db->pin_count) {
+			return DB_ERR_INVALID_INPUT;
+		}
+		if (db->pin_net[pin] == net) {
+			db->pin_net[pin] = (NetId)DB_INVALID_ID;
+		}
+	}
+
+	new_off = placed_db_reserve_netpins(db, pin_count);
+	if (new_off == DB_INVALID_ID) {
+		return DB_ERR_CAPACITY;
+	}
+	db->net_pin_offset[net] = new_off;
+	db->net_pin_count[net] = pin_count;
+
+	for (i = 0; i < pin_count; i++) {
+		PinId pin = pins[i];
+		if ((uint32_t)pin >= db->pin_count) {
+			return DB_ERR_INVALID_INPUT;
+		}
+		if (db->pin_net[pin] != (NetId)DB_INVALID_ID) {
+			return DB_ERR_INVALID_INPUT;
+		}
+		db->net_pin_ids[new_off + i] = pin;
+		db->pin_net[pin] = net;
+	}
+
+	r = batch_touch_net(batch, net);
+	if (r) {
+		return r;
+	}
 	return DB_OK;
 }
 
@@ -493,6 +580,18 @@ placed_db_end_batch(DbBatch *batch)
 			db->net_mark[net] = gen;
 			impacted[impacted_count++] = net;
 		}
+	}
+
+	for (i = 0; i < batch->touched_net_count; i++) {
+		NetId net = batch->touched_nets[i];
+		if ((uint32_t)net >= db->net_count) {
+			continue;
+		}
+		if (db->net_mark[net] == gen) {
+			continue;
+		}
+		db->net_mark[net] = gen;
+		impacted[impacted_count++] = net;
 	}
 
 	for (i = 0; i < impacted_count; i++) {
