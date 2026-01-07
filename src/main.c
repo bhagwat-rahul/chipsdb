@@ -2,9 +2,45 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "arena.h"
+#include "lib_db.h"
 #include "placed_db.h"
 
-int main(void)
+static int
+run_lib_parse(Arena *arena, const char *lef_path)
+{
+	LibDb lib;
+	DbResult r;
+	uint32_t i;
+
+	lib_db_init(&lib, arena);
+	r = lib_db_alloc(&lib, 1024, 16384);
+	if (r != DB_OK) {
+		fprintf(stderr, "lib alloc failed\n");
+		return 1;
+	}
+	r = lib_db_parse_lef_file(&lib, lef_path);
+	if (r != DB_OK) {
+		fprintf(stderr, "lef parse failed\n");
+		return 1;
+	}
+
+	printf("LEF parsed: masters=%u pins=%u dbu_per_micron=%d\n",
+		lib.master_count,
+		lib.pin_count,
+		lib.dbu_per_micron);
+
+	for (i = 0; i < lib.master_count && i < 8; i++) {
+		printf("  macro %u: %s w=%d h=%d pins=%u\n",
+			i,
+			lib.master_name[i] ? lib.master_name[i] : "(null)",
+			lib.master_w[i],
+			lib.master_h[i],
+			lib.master_pin_count[i]);
+	}
+	return 0;
+}
+
+int main(int argc, char **argv)
 {
 	Arena arena;
 	void *mem;
@@ -18,6 +54,20 @@ int main(void)
 	int64_t hpwl_before;
 	int64_t hpwl_after;
 	DbBatch batch;
+
+	if (argc == 2) {
+		mem = malloc(64 * 1024 * 1024);
+		if (!mem) {
+			fprintf(stderr, "oom\n");
+			return 1;
+		}
+		arena_init(&arena, mem, 64 * 1024 * 1024);
+		{
+			int rc = run_lib_parse(&arena, argv[1]);
+			free(mem);
+			return rc;
+		}
+	}
 
 	mem = malloc(1024 * 1024);
 	if (!mem) {
