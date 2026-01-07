@@ -455,19 +455,37 @@ batch_touch_net(DbBatch *batch, NetId net)
 	return DB_OK;
 }
 
-DbResult
-placed_db_batch_move_inst(DbBatch *batch, InstId inst, int32_t new_x, int32_t new_y)
+static DbResult
+batch_touch_inst(DbBatch *batch, InstId inst)
 {
-	PlacedDb *db = batch->db;
-	if ((uint32_t)inst >= db->inst_count) {
-		return DB_ERR_INVALID_INPUT;
+	uint32_t i;
+
+	for (i = 0; i < batch->touched_count; i++) {
+		if (batch->touched_insts[i] == inst) {
+			return DB_OK;
+		}
 	}
 	if (batch->touched_count >= batch->touched_cap) {
 		return DB_ERR_CAPACITY;
 	}
+	batch->touched_insts[batch->touched_count++] = inst;
+	return DB_OK;
+}
+
+DbResult
+placed_db_batch_move_inst(DbBatch *batch, InstId inst, int32_t new_x, int32_t new_y)
+{
+	PlacedDb *db = batch->db;
+	DbResult r;
+	if ((uint32_t)inst >= db->inst_count) {
+		return DB_ERR_INVALID_INPUT;
+	}
+
+	r = batch_touch_inst(batch, inst);
+	if (r) return r;
+
 	db->inst_x[inst] = new_x;
 	db->inst_y[inst] = new_y;
-	batch->touched_insts[batch->touched_count++] = inst;
 	return DB_OK;
 }
 
