@@ -84,6 +84,8 @@ DbResult placed_db_inst_pins(const PlacedDb *db, InstId inst, const PinId **pins
 DbResult placed_db_net_bbox(const PlacedDb *db, NetId net, BBoxI32 *out_bbox);
 DbResult placed_db_net_hpwl(const PlacedDb *db, NetId net, int64_t *out_hpwl);
 
+DbResult placed_db_validate(const PlacedDb *db);
+
 DbResult placed_db_recompute_all_nets(PlacedDb *db);
 
 DbBatch placed_db_begin_batch(PlacedDb *db, Arena *scratch_arena, uint32_t touched_inst_cap);

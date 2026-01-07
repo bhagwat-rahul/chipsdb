@@ -82,6 +82,11 @@ int main(void)
 	db.net_pin_ids[netpins_off + 0] = pin0;
 	db.net_pin_ids[netpins_off + 1] = pin1;
 
+	if (placed_db_validate(&db) != DB_OK) {
+		fprintf(stderr, "db validate failed (post-build)\n");
+		return 1;
+	}
+
 	placed_db_recompute_all_nets(&db);
 	placed_db_net_hpwl(&db, net0, &hpwl_before);
 	printf("hpwl before: %" PRId64 "\n", hpwl_before);
@@ -92,6 +97,11 @@ int main(void)
 		return 1;
 	}
 	placed_db_end_batch(&batch);
+
+	if (placed_db_validate(&db) != DB_OK) {
+		fprintf(stderr, "db validate failed (post-batch)\n");
+		return 1;
+	}
 
 	placed_db_net_hpwl(&db, net0, &hpwl_after);
 	printf("hpwl after: %" PRId64 "\n", hpwl_after);

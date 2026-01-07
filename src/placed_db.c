@@ -268,6 +268,53 @@ placed_db_net_hpwl(const PlacedDb *db, NetId net, int64_t *out_hpwl)
 	return DB_OK;
 }
 
+DbResult
+placed_db_validate(const PlacedDb *db)
+{
+	uint32_t i;
+
+	if (!db) {
+		return DB_ERR_INVALID_INPUT;
+	}
+
+	if (db->inst_count > db->inst_cap) return DB_ERR_INVALID_INPUT;
+	if (db->pin_count > db->pin_cap) return DB_ERR_INVALID_INPUT;
+	if (db->net_count > db->net_cap) return DB_ERR_INVALID_INPUT;
+	if (db->netpin_count > db->netpin_cap) return DB_ERR_INVALID_INPUT;
+
+	/* Inst -> Pins: contiguous slice and correct pin ownership */
+	for (i = 0; i < db->inst_count; i++) {
+		uint32_t off = db->inst_pin_offset[i];
+		uint32_t n = db->inst_pin_count[i];
+		uint32_t j;
+		if (off + n > db->pin_count) return DB_ERR_INVALID_INPUT;
+		for (j = 0; j < n; j++) {
+			uint32_t pin = off + j;
+			if ((uint32_t)db->pin_id[pin] != pin) return DB_ERR_INVALID_INPUT;
+			if ((uint32_t)db->pin_inst[pin] != i) return DB_ERR_INVALID_INPUT;
+			if (db->pin_net[pin] != (NetId)DB_INVALID_ID &&
+			    (uint32_t)db->pin_net[pin] >= db->net_count) {
+				return DB_ERR_INVALID_INPUT;
+			}
+		}
+	}
+
+	/* Net -> Pins: range checks and bidirectional consistency (pin_net == net) */
+	for (i = 0; i < db->net_count; i++) {
+		uint32_t off = db->net_pin_offset[i];
+		uint32_t n = db->net_pin_count[i];
+		uint32_t j;
+		if (off + n > db->netpin_count) return DB_ERR_INVALID_INPUT;
+		for (j = 0; j < n; j++) {
+			PinId pin = db->net_pin_ids[off + j];
+			if ((uint32_t)pin >= db->pin_count) return DB_ERR_INVALID_INPUT;
+			if ((uint32_t)db->pin_net[pin] != i) return DB_ERR_INVALID_INPUT;
+		}
+	}
+
+	return DB_OK;
+}
+
 static void
 recompute_net(PlacedDb *db, NetId net)
 {
