@@ -57,6 +57,15 @@ Outputs:
 - [x] `TechDb`: layers/tracks (minimal).
 - [x] `LibDb`: cell masters + pin direction + pin centers (partial geometry).
 
+Benchmarking milestone (pull forward):
+
+- [ ] HPWL microbenchmark harness:
+  - [ ] Synthetic netlist generator (deterministic seed).
+  - [ ] Full recompute throughput (`placed_db_recompute_all_nets`).
+  - [ ] Incremental step throughput (batch moves + `placed_db_end_batch`).
+- [ ] Minimal LEF+DEF export for benchmark parity.
+- [ ] OpenROAD script to ingest generated LEF/DEF and compute HPWL.
+
 ## Phase 2: Floorplan DB (makes placement physically meaningful)
 
 Goal: represent the physical canvas and basic placement constraints.
