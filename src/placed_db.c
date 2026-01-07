@@ -210,6 +210,45 @@ placed_db_reserve_netpins(PlacedDb *db, uint32_t n)
 }
 
 DbResult
+placed_db_define_net_pins(PlacedDb *db, NetId net, const PinId *pins, uint32_t pin_count)
+{
+	uint32_t off;
+	uint32_t i;
+
+	if ((uint32_t)net >= db->net_count) {
+		return DB_ERR_INVALID_INPUT;
+	}
+	if (!pins && pin_count) {
+		return DB_ERR_INVALID_INPUT;
+	}
+	if (db->net_pin_count[net] != 0) {
+		return DB_ERR_INVALID_INPUT;
+	}
+
+	off = placed_db_reserve_netpins(db, pin_count);
+	if (off == DB_INVALID_ID) {
+		return DB_ERR_CAPACITY;
+	}
+
+	db->net_pin_offset[net] = off;
+	db->net_pin_count[net] = pin_count;
+
+	for (i = 0; i < pin_count; i++) {
+		PinId pin = pins[i];
+		if ((uint32_t)pin >= db->pin_count) {
+			return DB_ERR_INVALID_INPUT;
+		}
+		if (db->pin_net[pin] != (NetId)DB_INVALID_ID) {
+			return DB_ERR_INVALID_INPUT;
+		}
+		db->net_pin_ids[off + i] = pin;
+		db->pin_net[pin] = net;
+	}
+
+	return DB_OK;
+}
+
+DbResult
 placed_db_net_pins(const PlacedDb *db, NetId net, const PinId **pins, uint32_t *count)
 {
 	uint32_t off;

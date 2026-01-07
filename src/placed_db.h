@@ -78,6 +78,8 @@ PinId placed_db_reserve_inst_pins(PlacedDb *db, InstId inst, uint32_t n);
 NetId placed_db_reserve_nets(PlacedDb *db, uint32_t n);
 uint32_t placed_db_reserve_netpins(PlacedDb *db, uint32_t n);
 
+DbResult placed_db_define_net_pins(PlacedDb *db, NetId net, const PinId *pins, uint32_t pin_count);
+
 DbResult placed_db_net_pins(const PlacedDb *db, NetId net, const PinId **pins, uint32_t *count);
 DbResult placed_db_inst_pins(const PlacedDb *db, InstId inst, const PinId **pins, uint32_t *count);
 

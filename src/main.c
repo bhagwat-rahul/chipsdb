@@ -63,24 +63,28 @@ int main(void)
 	}
 
 	db.pin_name[pin0] = "A";
-	db.pin_net[pin0] = net0;
 	db.pin_dx[pin0] = 0;
 	db.pin_dy[pin0] = 0;
 
 	db.pin_name[pin1] = "A";
-	db.pin_net[pin1] = net0;
 	db.pin_dx[pin1] = 0;
 	db.pin_dy[pin1] = 0;
 
-	netpins_off = placed_db_reserve_netpins(&db, 2);
+	{
+		PinId pins[2];
+		pins[0] = pin0;
+		pins[1] = pin1;
+		if (placed_db_define_net_pins(&db, net0, pins, 2) != DB_OK) {
+			fprintf(stderr, "define net pins failed\n");
+			return 1;
+		}
+	}
+
+	netpins_off = db.net_pin_offset[net0];
 	if (netpins_off == DB_INVALID_ID) {
-		fprintf(stderr, "netpins reserve failed\n");
+		fprintf(stderr, "net pin offset invalid\n");
 		return 1;
 	}
-	db.net_pin_offset[net0] = netpins_off;
-	db.net_pin_count[net0] = 2;
-	db.net_pin_ids[netpins_off + 0] = pin0;
-	db.net_pin_ids[netpins_off + 1] = pin1;
 
 	if (placed_db_validate(&db) != DB_OK) {
 		fprintf(stderr, "db validate failed (post-build)\n");
