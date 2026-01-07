@@ -21,7 +21,7 @@ The guiding idea:
   - **Exact tools** (STA/DRC) used sparingly, and with clear boundaries.
 - **Determinism**: same inputs → same outputs, to keep RL training stable.
 
-## Phase 0: Foundation (done / ongoing)
+## Phase 0: Foundation (complete)
 
 - [x] Arena allocator + frame markers.
 - [x] Core type system: IDs, result codes.
@@ -30,6 +30,15 @@ The guiding idea:
   - [x] Net adjacency.
   - [x] Derived caches (bbox, HPWL).
   - [x] Batch edit entry points for RL steps.
+
+Exit criteria met (current code):
+
+- Arena allocator with frame markers.
+- Stable 32-bit IDs + explicit `DbResult` error codes.
+- Placed DB with SoA tables and explicit reserve/build APIs.
+- Net adjacency + derived net caches (bbox/HPWL).
+- Batch edits with incremental cache updates, including instance moves and in-batch net pinlist redefinition.
+- Cheap invariant checking via `placed_db_validate()` for early bug-catching.
 
 ## Phase 1: Tech + library ingestion (enables real geometry)
 
