@@ -8,6 +8,14 @@
 #include "bench_case.h"
 #include "placed_db.h"
 
+static uint32_t
+getenv_u32(const char *key, uint32_t def)
+{
+	const char *s = getenv(key);
+	if (!s || !s[0]) return def;
+	return (uint32_t)strtoul(s, 0, 10);
+}
+
 static int
 ensure_dir(const char *path)
 {
@@ -102,12 +110,12 @@ int main(int argc, char **argv)
 	(void)argc;
 	(void)argv;
 
-	p.seed = 1;
-	p.inst_count = 1000;
-	p.nets_count = 1000;
-	p.pins_per_inst = 4;
-	p.pins_per_net = 4;
-	p.coord_span = 100000;
+	p.seed = getenv_u32("SEED", 1);
+	p.inst_count = getenv_u32("N", 20000);
+	p.nets_count = getenv_u32("M", 20000);
+	p.pins_per_inst = getenv_u32("P", 4);
+	p.pins_per_net = getenv_u32("K", 4);
+	p.coord_span = (int32_t)getenv_u32("SPAN", 100000);
 
 	mem = malloc(256ull * 1024ull * 1024ull);
 	if (!mem) {
