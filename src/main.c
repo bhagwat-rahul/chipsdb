@@ -55,26 +55,19 @@ int main(void)
 	}
 	db.net_name[net0] = "N1";
 
-	pin0 = placed_db_reserve_pins(&db, 1);
-	pin1 = placed_db_reserve_pins(&db, 1);
+	pin0 = placed_db_reserve_inst_pins(&db, inst_base + 0, 1);
+	pin1 = placed_db_reserve_inst_pins(&db, inst_base + 1, 1);
 	if (pin0 == (PinId)DB_INVALID_ID || pin1 == (PinId)DB_INVALID_ID) {
 		fprintf(stderr, "pin reserve failed\n");
 		return 1;
 	}
 
-	db.inst_pin_offset[inst_base + 0] = pin0;
-	db.inst_pin_count[inst_base + 0] = 1;
-	db.inst_pin_offset[inst_base + 1] = pin1;
-	db.inst_pin_count[inst_base + 1] = 1;
-
 	db.pin_name[pin0] = "A";
-	db.pin_inst[pin0] = inst_base + 0;
 	db.pin_net[pin0] = net0;
 	db.pin_dx[pin0] = 0;
 	db.pin_dy[pin0] = 0;
 
 	db.pin_name[pin1] = "A";
-	db.pin_inst[pin1] = inst_base + 1;
 	db.pin_net[pin1] = net0;
 	db.pin_dx[pin1] = 0;
 	db.pin_dy[pin1] = 0;

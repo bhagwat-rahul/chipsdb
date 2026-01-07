@@ -152,6 +152,41 @@ placed_db_reserve_pins(PlacedDb *db, uint32_t n)
 	return (PinId)base;
 }
 
+PinId
+placed_db_reserve_inst_pins(PlacedDb *db, InstId inst, uint32_t n)
+{
+	PinId base;
+	uint32_t i;
+	uint32_t p;
+
+	if ((uint32_t)inst >= db->inst_count) {
+		return (PinId)DB_INVALID_ID;
+	}
+	if (db->inst_pin_count[inst] != 0) {
+		return (PinId)DB_INVALID_ID;
+	}
+
+	base = placed_db_reserve_pins(db, n);
+	if (base == (PinId)DB_INVALID_ID) {
+		return (PinId)DB_INVALID_ID;
+	}
+
+	db->inst_pin_offset[inst] = (uint32_t)base;
+	db->inst_pin_count[inst] = n;
+
+	p = (uint32_t)base;
+	for (i = 0; i < n; i++) {
+		uint32_t pin = p + i;
+		db->pin_inst[pin] = inst;
+		db->pin_net[pin] = (NetId)DB_INVALID_ID;
+		db->pin_dx[pin] = 0;
+		db->pin_dy[pin] = 0;
+		db->pin_name[pin] = 0;
+	}
+
+	return base;
+}
+
 NetId
 placed_db_reserve_nets(PlacedDb *db, uint32_t n)
 {

@@ -74,6 +74,7 @@ void placed_db_reset(PlacedDb *db);
 
 InstId placed_db_reserve_insts(PlacedDb *db, uint32_t n);
 PinId placed_db_reserve_pins(PlacedDb *db, uint32_t n);
+PinId placed_db_reserve_inst_pins(PlacedDb *db, InstId inst, uint32_t n);
 NetId placed_db_reserve_nets(PlacedDb *db, uint32_t n);
 uint32_t placed_db_reserve_netpins(PlacedDb *db, uint32_t n);
 
