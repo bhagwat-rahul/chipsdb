@@ -142,3 +142,5 @@ If a change makes the code:
 - harder to reason about memory lifetime
 - harder to predict performance
 - Don’t make the change.
+
+> **Diff Directive:** Whenever you make a change (diff), keep it small and targeted. Only make a single, incremental modification per diff, so that every line can be carefully reviewed and audited; avoid bundling multiple unrelated changes in one go.

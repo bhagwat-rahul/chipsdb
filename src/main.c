@@ -1,7 +1,108 @@
-# include <stdio.h>
+#include <inttypes.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include "arena.h"
+#include "placed_db.h"
 
-int main()
+int main(void)
 {
-	puts("this is a db for chip design software");
+	Arena arena;
+	void *mem;
+
+	PlacedDb db;
+	InstId inst_base;
+	NetId net0;
+	PinId pin0;
+	PinId pin1;
+	uint32_t netpins_off;
+	int64_t hpwl_before;
+	int64_t hpwl_after;
+	DbBatch batch;
+
+	mem = malloc(1024 * 1024);
+	if (!mem) {
+		fprintf(stderr, "oom\n");
+		return 1;
+	}
+	arena_init(&arena, mem, 1024 * 1024);
+
+	placed_db_init(&db, &arena);
+	if (placed_db_alloc(&db, 8, 16, 8, 32) != DB_OK) {
+		fprintf(stderr, "db alloc failed\n");
+		return 1;
+	}
+
+	inst_base = placed_db_reserve_insts(&db, 2);
+	if (inst_base == (InstId)DB_INVALID_ID) {
+		fprintf(stderr, "inst reserve failed\n");
+		return 1;
+	}
+
+	db.inst_name[inst_base + 0] = "U1";
+	db.inst_x[inst_base + 0] = 0;
+	db.inst_y[inst_base + 0] = 0;
+	db.inst_orient[inst_base + 0] = 0;
+
+	db.inst_name[inst_base + 1] = "U2";
+	db.inst_x[inst_base + 1] = 100;
+	db.inst_y[inst_base + 1] = 0;
+	db.inst_orient[inst_base + 1] = 0;
+
+	net0 = placed_db_reserve_nets(&db, 1);
+	if (net0 == (NetId)DB_INVALID_ID) {
+		fprintf(stderr, "net reserve failed\n");
+		return 1;
+	}
+	db.net_name[net0] = "N1";
+
+	pin0 = placed_db_reserve_pins(&db, 1);
+	pin1 = placed_db_reserve_pins(&db, 1);
+	if (pin0 == (PinId)DB_INVALID_ID || pin1 == (PinId)DB_INVALID_ID) {
+		fprintf(stderr, "pin reserve failed\n");
+		return 1;
+	}
+
+	db.inst_pin_offset[inst_base + 0] = pin0;
+	db.inst_pin_count[inst_base + 0] = 1;
+	db.inst_pin_offset[inst_base + 1] = pin1;
+	db.inst_pin_count[inst_base + 1] = 1;
+
+	db.pin_name[pin0] = "A";
+	db.pin_inst[pin0] = inst_base + 0;
+	db.pin_net[pin0] = net0;
+	db.pin_dx[pin0] = 0;
+	db.pin_dy[pin0] = 0;
+
+	db.pin_name[pin1] = "A";
+	db.pin_inst[pin1] = inst_base + 1;
+	db.pin_net[pin1] = net0;
+	db.pin_dx[pin1] = 0;
+	db.pin_dy[pin1] = 0;
+
+	netpins_off = placed_db_reserve_netpins(&db, 2);
+	if (netpins_off == DB_INVALID_ID) {
+		fprintf(stderr, "netpins reserve failed\n");
+		return 1;
+	}
+	db.net_pin_offset[net0] = netpins_off;
+	db.net_pin_count[net0] = 2;
+	db.net_pin_ids[netpins_off + 0] = pin0;
+	db.net_pin_ids[netpins_off + 1] = pin1;
+
+	placed_db_recompute_all_nets(&db);
+	placed_db_net_hpwl(&db, net0, &hpwl_before);
+	printf("hpwl before: %" PRId64 "\n", hpwl_before);
+
+	batch = placed_db_begin_batch(&db, &arena, 1);
+	if (placed_db_batch_move_inst(&batch, inst_base + 1, 10, 0) != DB_OK) {
+		fprintf(stderr, "batch move failed\n");
+		return 1;
+	}
+	placed_db_end_batch(&batch);
+
+	placed_db_net_hpwl(&db, net0, &hpwl_after);
+	printf("hpwl after: %" PRId64 "\n", hpwl_after);
+
+	free(mem);
 	return 0;
 }
