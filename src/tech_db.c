@@ -251,13 +251,18 @@ tech_db_init(TechDb *db, Arena *arena)
 }
 
 DbResult
-tech_db_alloc(TechDb *db, uint32_t layer_cap, uint32_t track_cap)
+tech_db_alloc(TechDb *db, uint32_t site_cap, uint32_t layer_cap, uint32_t track_cap)
 {
 	Arena *a = db->arena;
 	DbResult r;
 
+	db->site_cap = site_cap;
 	db->layer_cap = layer_cap;
 	db->track_cap = track_cap;
+
+	r = alloc_cptr(a, &db->site_name, site_cap); if (r) return r;
+	r = alloc_i32(a, &db->site_w, site_cap); if (r) return r;
+	r = alloc_i32(a, &db->site_h, site_cap); if (r) return r;
 
 	r = alloc_cptr(a, &db->layer_name, layer_cap); if (r) return r;
 	r = alloc_u8(a, &db->layer_dir, layer_cap); if (r) return r;
@@ -278,9 +283,19 @@ tech_db_alloc(TechDb *db, uint32_t layer_cap, uint32_t track_cap)
 void
 tech_db_reset(TechDb *db)
 {
+	db->site_count = 0;
 	db->layer_count = 0;
 	db->track_count = 0;
 	db->dbu_per_micron = 1000;
+}
+
+static uint32_t
+tech_db_reserve_sites(TechDb *db, uint32_t n)
+{
+	uint32_t base = db->site_count;
+	if (base + n > db->site_cap) return DB_INVALID_ID;
+	db->site_count = base + n;
+	return base;
 }
 
 static LayerId
@@ -350,6 +365,35 @@ tech_db_parse_tech_lef_file(TechDb *db, const char *path)
 	for (;;) {
 		t = lex_next(&lx);
 		if (t.kind == TOK_EOF) break;
+
+		if (t.kind == TOK_IDENT && tok_eq(t, "SITE")) {
+			Tok name = lex_next(&lx);
+			uint32_t sid = tech_db_reserve_sites(db, 1);
+			if (sid == DB_INVALID_ID) return DB_ERR_CAPACITY;
+
+			db->site_name[sid] = arena_strdup_range(db->arena, name.s, name.len);
+			db->site_w[sid] = 0;
+			db->site_h[sid] = 0;
+
+			for (;;) {
+				Tok k = lex_next(&lx);
+				if (k.kind == TOK_EOF) break;
+				if (k.kind == TOK_IDENT && tok_eq(k, "SIZE")) {
+					Tok w = lex_next(&lx);
+					(void)lex_next(&lx); /* BY */
+					Tok h = lex_next(&lx);
+					(void)lex_next(&lx); /* ; */
+					db->site_w[sid] = parse_dbu_from_number(db->dbu_per_micron, w);
+					db->site_h[sid] = parse_dbu_from_number(db->dbu_per_micron, h);
+					continue;
+				}
+				if (k.kind == TOK_IDENT && tok_eq(k, "END")) {
+					(void)lex_next(&lx);
+					break;
+				}
+			}
+			continue;
+		}
 
 		if (t.kind == TOK_IDENT && tok_eq(t, "UNITS")) {
 			/* UNITS ... MICRONS <int> ; */

@@ -32,22 +32,17 @@ int main(void)
 		return 1;
 	}
 
-	if (tech.dbu_per_micron != 1000) {
-		fprintf(stderr, "expected dbu_per_micron=1000 got=%d\n", tech.dbu_per_micron);
+	if (tech.site_count != 1) {
+		fprintf(stderr, "expected 1 site got=%u\n", tech.site_count);
 		return 1;
 	}
-	if (tech.layer_count != 2) {
-		fprintf(stderr, "expected 2 layers got=%u\n", tech.layer_count);
+	if (!tech.site_name[0]) {
+		fprintf(stderr, "site name null\n");
 		return 1;
 	}
-	if (tech.track_count != 2) {
-		fprintf(stderr, "expected 2 tracks got=%u\n", tech.track_count);
-		return 1;
-	}
-
-	/* M1: pitch 0.20 -> 200 dbu */
-	if (tech.layer_pitch[0] != 200) {
-		fprintf(stderr, "expected layer0 pitch=200 got=%d\n", tech.layer_pitch[0]);
+	if (tech.site_w[0] != 190 || tech.site_h[0] != 1400) {
+		fprintf(stderr, "expected site 190x1400 got=%dx%d\n",
+			tech.site_w[0], tech.site_h[0]);
 		return 1;
 	}
 

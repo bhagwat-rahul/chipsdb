@@ -26,11 +26,18 @@ typedef struct TechDb {
 	/* LEF units: database units per micron (e.g. 1000) */
 	int32_t dbu_per_micron;
 
+	uint32_t site_count;
 	uint32_t layer_count;
 	uint32_t track_count;
 
+	uint32_t site_cap;
 	uint32_t layer_cap;
 	uint32_t track_cap;
+
+	/* Site table (SoA) */
+	const char **site_name;
+	int32_t *site_w;
+	int32_t *site_h;
 
 	/* Routing layer table (SoA) */
 	const char **layer_name;
@@ -48,7 +55,7 @@ typedef struct TechDb {
 } TechDb;
 
 void tech_db_init(TechDb *db, Arena *arena);
-DbResult tech_db_alloc(TechDb *db, uint32_t layer_cap, uint32_t track_cap);
+DbResult tech_db_alloc(TechDb *db, uint32_t site_cap, uint32_t layer_cap, uint32_t track_cap);
 void tech_db_reset(TechDb *db);
 
 DbResult tech_db_parse_tech_lef_file(TechDb *db, const char *path);

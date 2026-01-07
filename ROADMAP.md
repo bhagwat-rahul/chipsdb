@@ -45,7 +45,8 @@ Exit criteria met (current code):
 Goal: stop “making up” pin offsets and dimensions; use real library data.
 
 - [ ] LEF/tech LEF parsing:
-  - [ ] Sites/rows, via rules.
+  - [x] Sites (minimal: name + size).
+  - [ ] Rows, via rules.
   - [x] Routing layers, tracks (minimal: direction/pitch/width/spacing + TRACKS).
   - [x] Cell abstracts (partial: size, pin direction, pin bbox center from RECTs).
 - [ ] Liberty parsing (minimal subset):
