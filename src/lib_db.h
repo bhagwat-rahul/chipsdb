@@ -49,5 +49,3 @@ void lib_db_reset(LibDb *db);
 DbResult lib_db_parse_lef_file(LibDb *db, const char *path);
 
 #endif
-
-

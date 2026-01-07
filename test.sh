@@ -10,7 +10,7 @@ TEST_BUILD_DIR="$BUILD_DIR/tests"
 
 mkdir -p "$TEST_BUILD_DIR"
 
-tests=(placed_db lef_parse)
+tests=(placed_db lef_parse tech_lef_parse)
 
 pick="${1:-}"
 if [[ -z "$pick" ]]; then
@@ -46,7 +46,7 @@ case "$pick" in
       build_and_run "$t"
     done
     ;;
-  placed_db|lef_parse)
+  placed_db|lef_parse|tech_lef_parse)
     build_and_run "$pick"
     ;;
   *)

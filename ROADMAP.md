@@ -45,15 +45,16 @@ Exit criteria met (current code):
 Goal: stop “making up” pin offsets and dimensions; use real library data.
 
 - [ ] LEF/tech LEF parsing:
-  - [ ] Sites/rows, routing layers, tracks, via rules.
-  - [ ] Cell abstracts (size, pin shapes/locations).
+  - [ ] Sites/rows, via rules.
+  - [x] Routing layers, tracks (minimal: direction/pitch/width/spacing + TRACKS).
+  - [x] Cell abstracts (partial: size, pin direction, pin bbox center from RECTs).
 - [ ] Liberty parsing (minimal subset):
   - [ ] Pin direction, function (optional early), timing arcs (later).
 
 Outputs:
 
-- [ ] `TechDb`: layers/tracks/rules.
-- [ ] `LibDb`: cell masters (width/height), pin offsets, pin geometry.
+- [x] `TechDb`: layers/tracks (minimal).
+- [x] `LibDb`: cell masters + pin direction + pin centers (partial geometry).
 
 ## Phase 2: Floorplan DB (makes placement physically meaningful)
 

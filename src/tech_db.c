@@ -1,4 +1,4 @@
-#include "lib_db.h"
+#include "tech_db.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -189,13 +189,10 @@ parse_dbu_from_number(int32_t dbu_per_micron, Tok num)
 			if (!is_digit(c)) break;
 			fp = fp * 10 + (int64_t)(c - '0');
 			fscale *= 10;
-			if (fscale > 1000000) {
-				break;
-			}
+			if (fscale > 1000000) break;
 		}
 	}
 
-	/* microns * dbu_per_micron */
 	{
 		int64_t v = ip * (int64_t)dbu_per_micron;
 		if (fscale != 1) {
@@ -246,7 +243,7 @@ alloc_cptr(Arena *a, const char ***out, uint32_t count)
 }
 
 void
-lib_db_init(LibDb *db, Arena *arena)
+tech_db_init(TechDb *db, Arena *arena)
 {
 	memset(db, 0, sizeof(*db));
 	db->arena = arena;
@@ -254,72 +251,74 @@ lib_db_init(LibDb *db, Arena *arena)
 }
 
 DbResult
-lib_db_alloc(LibDb *db, uint32_t master_cap, uint32_t pin_cap)
+tech_db_alloc(TechDb *db, uint32_t layer_cap, uint32_t track_cap)
 {
 	Arena *a = db->arena;
 	DbResult r;
 
-	db->master_cap = master_cap;
-	db->pin_cap = pin_cap;
+	db->layer_cap = layer_cap;
+	db->track_cap = track_cap;
 
-	r = alloc_cptr(a, &db->master_name, master_cap); if (r) return r;
-	r = alloc_i32(a, &db->master_w, master_cap); if (r) return r;
-	r = alloc_i32(a, &db->master_h, master_cap); if (r) return r;
-	r = alloc_u32(a, &db->master_pin_offset, master_cap); if (r) return r;
-	r = alloc_u32(a, &db->master_pin_count, master_cap); if (r) return r;
+	r = alloc_cptr(a, &db->layer_name, layer_cap); if (r) return r;
+	r = alloc_u8(a, &db->layer_dir, layer_cap); if (r) return r;
+	r = alloc_i32(a, &db->layer_pitch, layer_cap); if (r) return r;
+	r = alloc_i32(a, &db->layer_width, layer_cap); if (r) return r;
+	r = alloc_i32(a, &db->layer_spacing, layer_cap); if (r) return r;
 
-	r = alloc_cptr(a, &db->pin_name, pin_cap); if (r) return r;
-	db->pin_master = (MasterId *)arena_alloc(a, sizeof(MasterId) * (size_t)pin_cap, _Alignof(MasterId));
-	if (!db->pin_master) return DB_ERR_OOM;
-	r = alloc_u8(a, &db->pin_dir, pin_cap); if (r) return r;
-	r = alloc_i32(a, &db->pin_cx, pin_cap); if (r) return r;
-	r = alloc_i32(a, &db->pin_cy, pin_cap); if (r) return r;
+	r = alloc_u8(a, &db->track_dir, track_cap); if (r) return r;
+	r = alloc_i32(a, &db->track_start, track_cap); if (r) return r;
+	r = alloc_i32(a, &db->track_pitch, track_cap); if (r) return r;
+	r = alloc_u32(a, &db->track_count_n, track_cap); if (r) return r;
+	r = alloc_cptr(a, &db->track_layer, track_cap); if (r) return r;
 
-	lib_db_reset(db);
+	tech_db_reset(db);
 	return DB_OK;
 }
 
 void
-lib_db_reset(LibDb *db)
+tech_db_reset(TechDb *db)
 {
-	db->master_count = 0;
-	db->pin_count = 0;
+	db->layer_count = 0;
+	db->track_count = 0;
 	db->dbu_per_micron = 1000;
 }
 
-static MasterId
-lib_db_reserve_masters(LibDb *db, uint32_t n)
+static LayerId
+tech_db_reserve_layers(TechDb *db, uint32_t n)
 {
-	uint32_t base = db->master_count;
-	if (base + n > db->master_cap) {
-		return (MasterId)DB_INVALID_ID;
-	}
-	db->master_count = base + n;
-	return (MasterId)base;
+	uint32_t base = db->layer_count;
+	if (base + n > db->layer_cap) return (LayerId)DB_INVALID_ID;
+	db->layer_count = base + n;
+	return (LayerId)base;
 }
 
 static uint32_t
-lib_db_reserve_pins(LibDb *db, uint32_t n)
+tech_db_reserve_tracks(TechDb *db, uint32_t n)
 {
-	uint32_t base = db->pin_count;
-	if (base + n > db->pin_cap) {
-		return DB_INVALID_ID;
-	}
-	db->pin_count = base + n;
+	uint32_t base = db->track_count;
+	if (base + n > db->track_cap) return DB_INVALID_ID;
+	db->track_count = base + n;
 	return base;
 }
 
-static PinDir
-pin_dir_from_tok(Tok t)
+static LayerDir
+layer_dir_from_tok(Tok t)
 {
-	if (tok_eq(t, "INPUT")) return PIN_DIR_INPUT;
-	if (tok_eq(t, "OUTPUT")) return PIN_DIR_OUTPUT;
-	if (tok_eq(t, "INOUT")) return PIN_DIR_INOUT;
-	return PIN_DIR_UNKNOWN;
+	if (tok_eq(t, "HORIZONTAL")) return LAYER_DIR_HORIZONTAL;
+	if (tok_eq(t, "VERTICAL")) return LAYER_DIR_VERTICAL;
+	return LAYER_DIR_UNKNOWN;
+}
+
+static TrackDir
+track_dir_from_tok(Tok t)
+{
+	if (tok_eq(t, "X")) return TRACK_DIR_X;
+	if (tok_eq(t, "Y")) return TRACK_DIR_Y;
+	return TRACK_DIR_UNKNOWN;
 }
 
 DbResult
-lib_db_parse_lef_file(LibDb *db, const char *path)
+tech_db_parse_tech_lef_file(TechDb *db, const char *path)
 {
 	FILE *f;
 	long fsz;
@@ -328,14 +327,8 @@ lib_db_parse_lef_file(LibDb *db, const char *path)
 	LefLex lx;
 	Tok t;
 
-	MasterId cur_master = (MasterId)DB_INVALID_ID;
-	uint32_t cur_pin_off = DB_INVALID_ID;
-	uint32_t cur_pin_count = 0;
-
-	uint32_t cur_pin_idx = DB_INVALID_ID;
-	PinDir cur_pin_dir = PIN_DIR_UNKNOWN;
-	int32_t pin_min_x = 0, pin_min_y = 0, pin_max_x = 0, pin_max_y = 0;
-	int pin_bbox_valid = 0;
+	LayerId cur_layer = (LayerId)DB_INVALID_ID;
+	const char *cur_layer_name = 0;
 
 	f = fopen(path, "rb");
 	if (!f) return DB_ERR_INVALID_INPUT;
@@ -376,123 +369,111 @@ lib_db_parse_lef_file(LibDb *db, const char *path)
 			continue;
 		}
 
-		if (t.kind == TOK_IDENT && tok_eq(t, "MACRO")) {
+		if (t.kind == TOK_IDENT && tok_eq(t, "LAYER")) {
 			Tok name = lex_next(&lx);
-			MasterId m = lib_db_reserve_masters(db, 1);
-			if (m == (MasterId)DB_INVALID_ID) return DB_ERR_CAPACITY;
-			db->master_name[m] = arena_strdup_range(db->arena, name.s, name.len);
-			db->master_w[m] = 0;
-			db->master_h[m] = 0;
-			db->master_pin_offset[m] = 0;
-			db->master_pin_count[m] = 0;
+			LayerId lid = tech_db_reserve_layers(db, 1);
+			if (lid == (LayerId)DB_INVALID_ID) return DB_ERR_CAPACITY;
 
-			cur_master = m;
-			cur_pin_off = db->pin_count;
-			cur_pin_count = 0;
+			cur_layer = lid;
+			cur_layer_name = arena_strdup_range(db->arena, name.s, name.len);
+
+			db->layer_name[lid] = cur_layer_name;
+			db->layer_dir[lid] = (uint8_t)LAYER_DIR_UNKNOWN;
+			db->layer_pitch[lid] = 0;
+			db->layer_width[lid] = 0;
+			db->layer_spacing[lid] = 0;
 			continue;
 		}
 
-		if (cur_master != (MasterId)DB_INVALID_ID) {
-			if (t.kind == TOK_IDENT && tok_eq(t, "SIZE")) {
-				Tok w = lex_next(&lx);
-				(void)lex_next(&lx); /* BY */
-				Tok h = lex_next(&lx);
-				(void)lex_next(&lx); /* ; */
-				if (w.kind == TOK_NUMBER && h.kind == TOK_NUMBER) {
-					db->master_w[cur_master] = parse_dbu_from_number(db->dbu_per_micron, w);
-					db->master_h[cur_master] = parse_dbu_from_number(db->dbu_per_micron, h);
+		if (cur_layer != (LayerId)DB_INVALID_ID) {
+			if (t.kind == TOK_IDENT && tok_eq(t, "TYPE")) {
+				Tok v = lex_next(&lx);
+				/* Only keep routing layers for now */
+				if (!tok_eq(v, "ROUTING")) {
+					cur_layer = (LayerId)DB_INVALID_ID;
+					cur_layer_name = 0;
+				}
+				for (;;) {
+					Tok s = lex_next(&lx);
+					if (s.kind == TOK_EOF || s.kind == TOK_SEMI) break;
 				}
 				continue;
 			}
 
-			if (t.kind == TOK_IDENT && tok_eq(t, "PIN")) {
-				Tok pname = lex_next(&lx);
-				uint32_t idx = lib_db_reserve_pins(db, 1);
-				if (idx == DB_INVALID_ID) return DB_ERR_CAPACITY;
-				db->pin_name[idx] = arena_strdup_range(db->arena, pname.s, pname.len);
-				db->pin_master[idx] = cur_master;
-				db->pin_dir[idx] = (uint8_t)PIN_DIR_UNKNOWN;
-				db->pin_cx[idx] = 0;
-				db->pin_cy[idx] = 0;
-
-				cur_pin_idx = idx;
-				cur_pin_dir = PIN_DIR_UNKNOWN;
-				pin_bbox_valid = 0;
-				cur_pin_count++;
+			if (t.kind == TOK_IDENT && tok_eq(t, "DIRECTION")) {
+				Tok v = lex_next(&lx);
+				db->layer_dir[cur_layer] = (uint8_t)layer_dir_from_tok(v);
+				for (;;) {
+					Tok s = lex_next(&lx);
+					if (s.kind == TOK_EOF || s.kind == TOK_SEMI) break;
+				}
 				continue;
 			}
 
-			if (cur_pin_idx != DB_INVALID_ID) {
-				if (t.kind == TOK_IDENT && tok_eq(t, "DIRECTION")) {
-					Tok d = lex_next(&lx);
-					cur_pin_dir = pin_dir_from_tok(d);
-					db->pin_dir[cur_pin_idx] = (uint8_t)cur_pin_dir;
-					/* consume to ';' */
-					for (;;) {
-						Tok s = lex_next(&lx);
-						if (s.kind == TOK_EOF || s.kind == TOK_SEMI) break;
-					}
-					continue;
+			if (t.kind == TOK_IDENT && tok_eq(t, "PITCH")) {
+				Tok v = lex_next(&lx);
+				db->layer_pitch[cur_layer] = parse_dbu_from_number(db->dbu_per_micron, v);
+				for (;;) {
+					Tok s = lex_next(&lx);
+					if (s.kind == TOK_EOF || s.kind == TOK_SEMI) break;
 				}
+				continue;
+			}
 
-				if (t.kind == TOK_IDENT && tok_eq(t, "RECT")) {
-					Tok x1 = lex_next(&lx);
-					Tok y1 = lex_next(&lx);
-					Tok x2 = lex_next(&lx);
-					Tok y2 = lex_next(&lx);
-					(void)lex_next(&lx); /* ; */
-					if (x1.kind == TOK_NUMBER && y1.kind == TOK_NUMBER &&
-					    x2.kind == TOK_NUMBER && y2.kind == TOK_NUMBER) {
-						int32_t ax1 = parse_dbu_from_number(db->dbu_per_micron, x1);
-						int32_t ay1 = parse_dbu_from_number(db->dbu_per_micron, y1);
-						int32_t ax2 = parse_dbu_from_number(db->dbu_per_micron, x2);
-						int32_t ay2 = parse_dbu_from_number(db->dbu_per_micron, y2);
-						if (!pin_bbox_valid) {
-							pin_min_x = ax1; pin_max_x = ax2;
-							pin_min_y = ay1; pin_max_y = ay2;
-							pin_bbox_valid = 1;
-						} else {
-							if (ax1 < pin_min_x) pin_min_x = ax1;
-							if (ay1 < pin_min_y) pin_min_y = ay1;
-							if (ax2 > pin_max_x) pin_max_x = ax2;
-							if (ay2 > pin_max_y) pin_max_y = ay2;
-						}
-					}
-					continue;
+			if (t.kind == TOK_IDENT && tok_eq(t, "WIDTH")) {
+				Tok v = lex_next(&lx);
+				db->layer_width[cur_layer] = parse_dbu_from_number(db->dbu_per_micron, v);
+				for (;;) {
+					Tok s = lex_next(&lx);
+					if (s.kind == TOK_EOF || s.kind == TOK_SEMI) break;
 				}
+				continue;
+			}
 
-				if (t.kind == TOK_IDENT && tok_eq(t, "END")) {
-					Tok endname = lex_next(&lx);
-					if (endname.kind == TOK_IDENT) {
-						/* END <pinname> */
-						if (pin_bbox_valid) {
-							db->pin_cx[cur_pin_idx] = (pin_min_x + pin_max_x) / 2;
-							db->pin_cy[cur_pin_idx] = (pin_min_y + pin_max_y) / 2;
-						}
-						cur_pin_idx = DB_INVALID_ID;
-						cur_pin_dir = PIN_DIR_UNKNOWN;
-						pin_bbox_valid = 0;
-						(void)endname;
-						continue;
-					}
+			if (t.kind == TOK_IDENT && tok_eq(t, "SPACING")) {
+				Tok v = lex_next(&lx);
+				db->layer_spacing[cur_layer] = parse_dbu_from_number(db->dbu_per_micron, v);
+				for (;;) {
+					Tok s = lex_next(&lx);
+					if (s.kind == TOK_EOF || s.kind == TOK_SEMI) break;
 				}
+				continue;
 			}
 
 			if (t.kind == TOK_IDENT && tok_eq(t, "END")) {
-				Tok endname = lex_next(&lx);
-				if (endname.kind == TOK_IDENT) {
-					/* END <macroname> */
-					if (cur_master != (MasterId)DB_INVALID_ID) {
-						db->master_pin_offset[cur_master] = cur_pin_off;
-						db->master_pin_count[cur_master] = cur_pin_count;
-					}
-					cur_master = (MasterId)DB_INVALID_ID;
-					cur_pin_off = DB_INVALID_ID;
-					cur_pin_count = 0;
-					cur_pin_idx = DB_INVALID_ID;
-					continue;
-				}
+				Tok n = lex_next(&lx);
+				(void)n;
+				cur_layer = (LayerId)DB_INVALID_ID;
+				cur_layer_name = 0;
+				continue;
 			}
+		}
+
+		if (t.kind == TOK_IDENT && tok_eq(t, "TRACKS")) {
+			/* TRACKS X|Y <start> DO <n> STEP <pitch> LAYER <name> ; */
+			Tok dir = lex_next(&lx);
+			Tok start = lex_next(&lx);
+			(void)lex_next(&lx); /* DO */
+			Tok n = lex_next(&lx);
+			(void)lex_next(&lx); /* STEP */
+			Tok pitch = lex_next(&lx);
+
+			for (;;) {
+				Tok k = lex_next(&lx);
+				if (k.kind == TOK_EOF) break;
+				if (k.kind == TOK_IDENT && tok_eq(k, "LAYER")) {
+					Tok lname = lex_next(&lx);
+					uint32_t idx = tech_db_reserve_tracks(db, 1);
+					if (idx == DB_INVALID_ID) return DB_ERR_CAPACITY;
+					db->track_dir[idx] = (uint8_t)track_dir_from_tok(dir);
+					db->track_start[idx] = parse_dbu_from_number(db->dbu_per_micron, start);
+					db->track_pitch[idx] = parse_dbu_from_number(db->dbu_per_micron, pitch);
+					db->track_count_n[idx] = (uint32_t)parse_i32(n.s, n.len);
+					db->track_layer[idx] = arena_strdup_range(db->arena, lname.s, lname.len);
+				}
+				if (k.kind == TOK_SEMI) break;
+			}
+			continue;
 		}
 	}
 
