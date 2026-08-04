@@ -1,0 +1,22 @@
+VERSION 5.8 ;
+UNITS DATABASE MICRONS 1000 ;
+
+MACRO INVX1
+  CLASS CORE ;
+  ORIGIN 0 0 ;
+  SIZE 1.0 BY 2.0 ;
+  PIN A
+    DIRECTION INPUT ;
+    PORT
+      LAYER M1 ;
+        RECT 0.1 0.2 0.3 0.4 ;
+    END
+  END A
+  PIN Y
+    DIRECTION OUTPUT ;
+    PORT
+      LAYER M1 ;
+        RECT 0.8 1.6 0.9 1.8 ;
+    END
+  END Y
+END INVX1
